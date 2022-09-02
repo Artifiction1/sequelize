@@ -1,11 +1,24 @@
 import express from "express";
-import Product from "./modal.js";
+import Product from "./model.js";
+import Category from "../categories/model.js";
 import { Op } from "sequelize";
+import CartCategory from "./cartCategoriesModel.js";
 
 const router = express.Router();
 
 router.get("/", async (req, res, next) => {
   try {
+    const carts = await Product.findAll({
+      include:{
+          model: Category,
+          attributes: ["name", "id"],
+          through: { attributes: [] },
+        }
+      
+    });
+    res.send(carts)
+  }
+  /*try {
     const query = {};
     if (req.query.name) {
       console.log("here")
@@ -33,7 +46,8 @@ router.get("/", async (req, res, next) => {
 
   ;
     res.send(products);
-  } catch (error) {
+  }*/
+   catch (error) {
     console.log(error);
     next(error);
   }
@@ -52,14 +66,28 @@ router.get("/:id", async (req, res, next) => {
 
 router.post("/", async (req, res, next) => {
   try {
-    const product = await Product.create(req.body);
+    const newCart = await Product.create({
+      name: req.body.name,
+      description: req.body.description,
+      price: req.body.price,
+      image: req.body.image,
+    });
 
-    res.send(product);
+    if (newCart.id) {
+      const dataToInsert = req.body.categories.map((categoryId) => ({
+        categoryId: categoryId,
+        ProductId: newCart.id,
+      }));
+
+      await CartCategory.bulkCreate(dataToInsert);
+    }
+
+    res.send(newCart);
   } catch (error) {
     console.log(error);
     next(error);
   }
-});
+})
 
 router.put("/:id", async (req, res, next) => {
   try {
@@ -87,6 +115,33 @@ router.delete("/:id", async (req, res, next) => {
   } catch (error) {
     console.log(error);
     next(error);
+  }
+});
+router.post("/:cartId/add/:categoryId", async (req, res, next) => {
+  try {
+    const result = await CartCategory.create({
+      categoryId: req.params.categoryId,
+      cartId: req.params.cartId,
+    });
+
+    res.send(result);
+  } catch (error) {
+    console.log(error);
+    next(error);
+  }
+});
+
+router.delete("/:cartId/delete/:categoryId", async (req, res, next) => {
+  try {
+    const result = await CartCategory.destroy({
+      where: {
+        categoryId: req.params.categoryId,
+        cartId: req.params.cartId,
+      },
+    });
+    res.send({ rows: result });
+  } catch (error) {
+    console.log(error);
   }
 });
 
